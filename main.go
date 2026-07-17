@@ -49,7 +49,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
 
-// parseCNABHandler é o endpoint REST da API que processa o arquivo carregado
+// parseCNABHandler é o endpoint REST da API que processa os arquivos carregados
 func parseCNABHandler(w http.ResponseWriter, r *http.Request) {
 	// Apenas requisições POST são permitidas para envio de arquivos
 	if r.Method != http.MethodPost {
@@ -57,45 +57,56 @@ func parseCNABHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limita o tamanho do arquivo a ser recebido na memória para 10MB
-	err := r.ParseMultipartForm(10 << 20)
+	// Limita o tamanho total dos arquivos a ser recebido na memória para 50MB
+	err := r.ParseMultipartForm(50 << 20)
 	if err != nil {
-		http.Error(w, "Arquivo enviado é muito grande (Máximo 10MB).", http.StatusBadRequest)
+		http.Error(w, "Arquivos enviados são muito grandes (Máximo 50MB).", http.StatusBadRequest)
 		return
 	}
-
-	// Obtém o arquivo enviado no formulário com o nome "file"
-	arquivoUpload, _, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Não foi possível recuperar o arquivo da requisição: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer arquivoUpload.Close()
 
 	var titulos []Titulo
+	filesFound := false
 
-	// Lemos o arquivo carregado linha por linha na memória (em tempo real)
-	scanner := bufio.NewScanner(arquivoUpload)
-	for scanner.Scan() {
-		linha := scanner.Text()
+	// Percorre todas as chaves e arquivos no formulário multipart
+	for _, fileHeaders := range r.MultipartForm.File {
+		for _, fileHeader := range fileHeaders {
+			filesFound = true
+			arquivoUpload, err := fileHeader.Open()
+			if err != nil {
+				http.Error(w, "Erro ao abrir um dos arquivos CNAB: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-		// Valida se a linha tem o tamanho mínimo esperado para conter até o Sacado (posição 274)
-		if len(linha) < 274 {
-			continue
-		}
+			// Lemos o arquivo carregado linha por linha na memória (em tempo real)
+			scanner := bufio.NewScanner(arquivoUpload)
+			for scanner.Scan() {
+				linha := scanner.Text()
 
-		// A primeira posição define o tipo de registro (0 = Header, 1 = Detalhe, 9 = Trailer)
-		tipoRegistro := linha[0:1]
+				// Valida se a linha tem o tamanho mínimo esperado para conter até o Sacado (posição 274)
+				if len(linha) < 274 {
+					continue
+				}
 
-		if tipoRegistro == "1" {
-			// Processa a linha extraindo as posições específicas do CNAB
-			tituloParsed := processarLinhaDetalhe(linha)
-			titulos = append(titulos, tituloParsed)
+				// A primeira posição define o tipo de registro (0 = Header, 1 = Detalhe, 9 = Trailer)
+				tipoRegistro := linha[0:1]
+
+				if tipoRegistro == "1" {
+					// Processa a linha extraindo as posições específicas do CNAB
+					tituloParsed := processarLinhaDetalhe(linha)
+					titulos = append(titulos, tituloParsed)
+				}
+			}
+			arquivoUpload.Close()
+
+			if err := scanner.Err(); err != nil {
+				http.Error(w, "Erro ao processar as linhas de um dos arquivos: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		http.Error(w, "Erro ao processar as linhas do arquivo: "+err.Error(), http.StatusInternalServerError)
+	if !filesFound {
+		http.Error(w, "Nenhum arquivo enviado no formulário.", http.StatusBadRequest)
 		return
 	}
 

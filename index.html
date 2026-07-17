@@ -344,9 +344,9 @@
         <!-- Área do Formulário de Upload -->
         <div class="upload-section" id="drop-zone" onclick="document.getElementById('file-input').click()">
             <div class="upload-icon">📁</div>
-            <div class="upload-text">Arraste seu arquivo .REM ou clique para selecionar</div>
-            <div class="upload-subtext">Limite de tamanho: 10MB</div>
-            <input type="file" id="file-input" accept=".rem,.txt">
+            <div class="upload-text">Arraste seus arquivos .REM ou clique para selecionar</div>
+            <div class="upload-subtext">Selecione um ou mais arquivos. Limite total: 50MB</div>
+            <input type="file" id="file-input" accept=".rem,.txt" multiple>
         </div>
 
         <div class="loader" id="loader"></div>
@@ -354,7 +354,10 @@
         <!-- Seção de Resultados -->
         <div class="results-container" id="results-container">
             <div class="results-header">
-                <span class="results-title">Títulos Extraídos</span>
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <span class="results-title">Títulos Extraídos</span>
+                    <span id="files-subtitle" style="font-size: 0.85rem; color: var(--text-muted); display: none;"></span>
+                </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span class="results-badge" id="total-badge">0 Registros</span>
                     <div class="export-actions">
@@ -413,21 +416,23 @@
         dropZone.addEventListener('drop', e => {
             const dt = e.dataTransfer;
             const files = dt.files;
-            if (files.length) handleFile(files[0]);
+            if (files.length) handleFiles(files);
         });
 
         fileInput.addEventListener('change', e => {
-            if (fileInput.files.length) handleFile(fileInput.files[0]);
+            if (fileInput.files.length) handleFiles(fileInput.files);
         });
 
-        // Envia o arquivo para a API Go
-        function handleFile(file) {
+        // Envia os arquivos para a API Go
+        function handleFiles(files) {
             // Mostrar loader e ocultar tabela anterior
             loader.style.display = 'block';
             resultsContainer.style.display = 'none';
 
             const formData = new FormData();
-            formData.append('file', file);
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
 
             // Chamada POST para o endpoint /api/parse
             fetch('/api/parse', {
@@ -436,12 +441,14 @@
             })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Erro ao processar arquivo CNAB');
+                        return response.text().then(text => {
+                            throw new Error(text || 'Erro ao processar arquivos CNAB');
+                        });
                     }
                     return response.json();
                 })
                 .then(data => {
-                    renderResults(data);
+                    renderResults(data, files);
                 })
                 .catch(error => {
                     alert('Erro: ' + error.message);
@@ -452,9 +459,19 @@
         }
 
         // Renderiza os dados retornados pela API na tabela
-        function renderResults(titulos) {
+        function renderResults(titulos, files) {
             resultsTbody.innerHTML = '';
             dadosExtraidos = titulos; // Salva para exportação posterior
+
+            // Exibir lista de arquivos processados no subtítulo
+            const filesSubtitle = document.getElementById('files-subtitle');
+            if (files && files.length > 0) {
+                const names = Array.from(files).map(f => f.name).join(', ');
+                filesSubtitle.textContent = `Arquivos unificados: ${names}`;
+                filesSubtitle.style.display = 'block';
+            } else {
+                filesSubtitle.style.display = 'none';
+            }
 
             if (!titulos || titulos.length === 0) {
                 resultsTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Nenhum registro de detalhe tipo 1 encontrado.</td></tr>`;
