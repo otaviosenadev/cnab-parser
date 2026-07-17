@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNAB Parser - FIDC Banco Paulista</title>
+    <!-- Google Fonts para tipografia premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-glow: rgba(99, 102, 241, 0.15);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Área de Upload */
+        .upload-section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .upload-section:hover, .upload-section.dragover {
+            border-color: var(--primary);
+            box-shadow: 0 0 25px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-section:hover .upload-icon {
+            transform: translateY(-5px);
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Loader */
+        .loader {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        /* Container de Resultados */
+        .results-container {
+            display: none;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        }
+
+        .results-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .results-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .results-badge {
+            background: var(--primary-glow);
+            color: #a5b4fc;
+            padding: 0.3rem 0.8rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        /* Tabela Responsiva */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-main);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        /* Badges de Pagamento e Ocorrência */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: var(--success-bg);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-warning {
+            background-color: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .badge-info {
+            background-color: rgba(99, 102, 241, 0.08);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        .value-cell {
+            font-family: monospace;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* Animações */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            header h1 {
+                font-size: 2rem;
+            }
+            .upload-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>CNAB Parser</h1>
+        <p>Dashboard de Conciliação FIDC - Banco Paulista</p>
+    </header>
+
+    <main>
+        <!-- Área do Formulário de Upload -->
+        <div class="upload-section" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Arraste seu arquivo .REM ou clique para selecionar</div>
+            <div class="upload-subtext">Limite de tamanho: 10MB</div>
+            <input type="file" id="file-input" accept=".rem,.txt">
+        </div>
+
+        <div class="loader" id="loader"></div>
+
+        <!-- Seção de Resultados -->
+        <div class="results-container" id="results-container">
+            <div class="results-header">
+                <span class="results-title">Títulos Extraídos</span>
+                <span class="results-badge" id="total-badge">0 Registros</span>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sacado</th>
+                            <th>Valor Original</th>
+                            <th>Vencimento</th>
+                            <th>Status</th>
+                            <th>Data Pagamento</th>
+                            <th>Valor Pago</th>
+                            <th>Ocorrência</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                        <!-- Linhas geradas dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const loader = document.getElementById('loader');
+        const resultsContainer = document.getElementById('results-container');
+        const resultsTbody = document.getElementById('results-tbody');
+        const totalBadge = document.getElementById('total-badge');
+
+        // Drag and Drop Events
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) handleFile(files[0]);
+        });
+
+        fileInput.addEventListener('change', e => {
+            if (fileInput.files.length) handleFile(fileInput.files[0]);
+        });
+
+        // Envia o arquivo para a API Go
+        function handleFile(file) {
+            // Mostrar loader e ocultar tabela anterior
+            loader.style.display = 'block';
+            resultsContainer.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Chamada POST para o endpoint /api/parse
+            fetch('/api/parse', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao processar arquivo CNAB');
+                }
+                return response.json();
+            })
+            .then(data => {
+                renderResults(data);
+            })
+            .catch(error => {
+                alert('Erro: ' + error.message);
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+            });
+        }
+
+        // Renderiza os dados retornados pela API na tabela
+        function renderResults(titulos) {
+            resultsTbody.innerHTML = '';
+            
+            if (!titulos || titulos.length === 0) {
+                resultsTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Nenhum registro de detalhe tipo 1 encontrado.</td></tr>`;
+                totalBadge.textContent = '0 Registros';
+                resultsContainer.style.display = 'block';
+                return;
+            }
+
+            totalBadge.textContent = `${titulos.length} Registros`;
+
+            titulos.forEach(t => {
+                const tr = document.createElement('tr');
+
+                // Formatação monetária BRL
+                const valorOriginal = formatCurrency(t.valor_original);
+                const valorPago = t.valor_pago > 0 ? formatCurrency(t.valor_pago) : '-';
+                
+                // Status Badge
+                const statusBadge = t.pago 
+                    ? `<span class="badge badge-success">Pago</span>`
+                    : `<span class="badge badge-warning">Pendente</span>`;
+
+                tr.innerHTML = `
+                    <td style="font-weight: 500;">${escapeHTML(t.sacado)}</td>
+                    <td class="value-cell">${valorOriginal}</td>
+                    <td>${t.data_vencimento}</td>
+                    <td>${statusBadge}</td>
+                    <td>${t.data_pagamento || '-'}</td>
+                    <td class="value-cell">${valorPago}</td>
+                    <td><span class="badge badge-info">${escapeHTML(t.descricao_ocorrencia)}</span></td>
+                `;
+
+                resultsTbody.appendChild(tr);
+            });
+
+            resultsContainer.style.display = 'block';
+        }
+
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>

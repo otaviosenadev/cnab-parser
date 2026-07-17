@@ -1,0 +1,35 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches:
+      - main # O deploy será feito sempre que houver push na branch main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy no Servidor via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Altera para a pasta onde o projeto está clonado no seu servidor Oracle
+            cd /home/${{ secrets.SSH_USER }}/cnab-parser || exit 1
+            
+            # Baixa a versão mais recente do código do GitHub
+            git pull origin main
+            
+            # Reconstrói a imagem Docker super leve
+            docker build -t cnab-parser .
+            
+            # Para e deleta o container antigo (se existir)
+            docker stop cnab-parser || true
+            docker rm cnab-parser || true
+            
+            # Inicia o novo container atualizado
+            docker run -d -p 8080:8080 --name cnab-parser --restart unless-stopped cnab-parser

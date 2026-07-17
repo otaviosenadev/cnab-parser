@@ -1,0 +1,13 @@
+# Executáveis gerados por compilação local
+cnab-parser
+cnab-parser.exe
+*.exe
+
+# Arquivos temporários e logs
+*.log
+.DS_Store
+
+# Evita enviar arquivos com dados CNAB confidenciais
+*.rem
+*.txt
+!exemplo.rem # Deixamos apenas o exemplo público no git
