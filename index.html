@@ -289,14 +289,55 @@
                 padding: 1.5rem;
             }
         }
+
+        /* Estilos dos Botões de Exportação */
+        .export-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.2s ease;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-excel:hover {
+            background-color: var(--success-bg);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .btn-pdf:hover {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #f87171;
+        }
     </style>
+    <!-- jsPDF e AutoTable para geração de PDF bonita -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
 </head>
 
 <body>
 
     <header>
         <h1>CNAB Parser</h1>
-        <p>Dashboard de Conciliação FIDC - Banco Paulista</p>
+        <p>por Otávio Sena</p>
     </header>
 
     <main>
@@ -314,7 +355,13 @@
         <div class="results-container" id="results-container">
             <div class="results-header">
                 <span class="results-title">Títulos Extraídos</span>
-                <span class="results-badge" id="total-badge">0 Registros</span>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="results-badge" id="total-badge">0 Registros</span>
+                    <div class="export-actions">
+                        <button class="btn-export btn-excel" onclick="exportarExcel()">📊 Planilha (Excel)</button>
+                        <button class="btn-export btn-pdf" onclick="exportarPDF()">📕 Relatório (PDF)</button>
+                    </div>
+                </div>
             </div>
             <div class="table-wrapper">
                 <table>
@@ -344,6 +391,9 @@
         const resultsContainer = document.getElementById('results-container');
         const resultsTbody = document.getElementById('results-tbody');
         const totalBadge = document.getElementById('total-badge');
+
+        // Dados globais para exportação
+        let dadosExtraidos = [];
 
         // Drag and Drop Events
         ['dragenter', 'dragover'].forEach(eventName => {
@@ -404,6 +454,7 @@
         // Renderiza os dados retornados pela API na tabela
         function renderResults(titulos) {
             resultsTbody.innerHTML = '';
+            dadosExtraidos = titulos; // Salva para exportação posterior
 
             if (!titulos || titulos.length === 0) {
                 resultsTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Nenhum registro de detalhe tipo 1 encontrado.</td></tr>`;
@@ -450,6 +501,85 @@
             return str.replace(/[&<>'"]/g,
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
             );
+        }
+
+        // Função para exportar os dados para CSV/Excel
+        function exportarExcel() {
+            if (!dadosExtraidos || dadosExtraidos.length === 0) return;
+
+            // BOM UTF-8 para o Excel abrir com acentuação correta no Windows
+            let csvContent = "\uFEFF";
+            
+            // Cabeçalho da tabela com ponto-e-vírgula (separador padrão Excel BR)
+            csvContent += "Sacado;Valor Original;Vencimento;Status;Data Pagamento;Valor Pago;Ocorrência\r\n";
+
+            dadosExtraidos.forEach(t => {
+                const status = t.pago ? "Pago" : "Pendente";
+                const valorOriginal = t.valor_original.toFixed(2).replace('.', ',');
+                const valorPago = t.valor_pago > 0 ? t.valor_pago.toFixed(2).replace('.', ',') : '0,00';
+                const dataPagamento = t.data_pagamento || '-';
+
+                csvContent += `"${t.sacado}";"${valorOriginal}";"${t.data_vencimento}";"${status}";"${dataPagamento}";"${valorPago}";"${t.descricao_ocorrencia}"\r\n`;
+            });
+
+            // Cria e dispara o download do arquivo
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "cnab_extraido.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Função para exportar para PDF com tabela estilizada (jsPDF + autoTable)
+        function exportarPDF() {
+            if (!dadosExtraidos || dadosExtraidos.length === 0) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Configuração do título do documento
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text("Relatório de Títulos CNAB", 14, 20);
+
+            // Metadados
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 26);
+            doc.text("Origem: FIDC Banco Paulista - Processamento de Remessa", 14, 31);
+
+            // Cabeçalho e dados para a tabela
+            const colunas = [["Sacado", "Vencimento", "Vl. Original", "Status", "Dt. Pagamento", "Vl. Pago", "Ocorrência"]];
+            const linhas = dadosExtraidos.map(t => [
+                t.sacado,
+                t.data_vencimento,
+                formatCurrency(t.valor_original),
+                t.pago ? "Pago" : "Pendente",
+                t.data_pagamento || "-",
+                t.valor_pago > 0 ? formatCurrency(t.valor_pago) : "-",
+                t.descricao_ocorrencia
+            ]);
+
+            // Gera a tabela auto-ajustável usando o plugin
+            doc.autoTable({
+                startY: 37,
+                head: colunas,
+                body: linhas,
+                theme: 'striped',
+                headStyles: { fillColor: [99, 102, 241] }, // Cor primária roxo/indigo
+                styles: { fontSize: 8, cellPadding: 2.5 },
+                columnStyles: {
+                    0: { cellWidth: 50 }, // Largura fixa para a coluna do Sacado (evita quebrar)
+                    6: { cellWidth: 35 }  // Ocorrência
+                }
+            });
+
+            // Salva o PDF
+            doc.save("cnab_relatorio.pdf");
         }
     </script>
 </body>
