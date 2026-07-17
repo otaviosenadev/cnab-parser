@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNAB Parser - FIDC Banco Paulista</title>
+    <title>CNAB Parser - FIDC Banco Paulista!</title>
     <!-- Google Fonts para tipografia premium -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,7 +43,7 @@
             align-items: center;
             padding: 2rem 1.5rem;
             overflow-x: hidden;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
                 radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
         }
@@ -93,7 +94,8 @@
             position: relative;
         }
 
-        .upload-section:hover, .upload-section.dragover {
+        .upload-section:hover,
+        .upload-section.dragover {
             border-color: var(--primary);
             box-shadow: 0 0 25px var(--primary-glow);
             transform: translateY(-2px);
@@ -144,7 +146,7 @@
             border-radius: 16px;
             overflow: hidden;
             backdrop-filter: blur(12px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
         }
 
         .results-header {
@@ -244,7 +246,9 @@
 
         /* Animações */
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         @keyframes fadeInDown {
@@ -252,6 +256,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -263,6 +268,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -274,15 +280,18 @@
             body {
                 padding: 1rem;
             }
+
             header h1 {
                 font-size: 2rem;
             }
+
             .upload-section {
                 padding: 1.5rem;
             }
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -375,27 +384,27 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Erro ao processar arquivo CNAB');
-                }
-                return response.json();
-            })
-            .then(data => {
-                renderResults(data);
-            })
-            .catch(error => {
-                alert('Erro: ' + error.message);
-            })
-            .finally(() => {
-                loader.style.display = 'none';
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro ao processar arquivo CNAB');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    renderResults(data);
+                })
+                .catch(error => {
+                    alert('Erro: ' + error.message);
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                });
         }
 
         // Renderiza os dados retornados pela API na tabela
         function renderResults(titulos) {
             resultsTbody.innerHTML = '';
-            
+
             if (!titulos || titulos.length === 0) {
                 resultsTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Nenhum registro de detalhe tipo 1 encontrado.</td></tr>`;
                 totalBadge.textContent = '0 Registros';
@@ -411,9 +420,9 @@
                 // Formatação monetária BRL
                 const valorOriginal = formatCurrency(t.valor_original);
                 const valorPago = t.valor_pago > 0 ? formatCurrency(t.valor_pago) : '-';
-                
+
                 // Status Badge
-                const statusBadge = t.pago 
+                const statusBadge = t.pago
                     ? `<span class="badge badge-success">Pago</span>`
                     : `<span class="badge badge-warning">Pendente</span>`;
 
@@ -438,10 +447,11 @@
         }
 
         function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
+            return str.replace(/[&<>'"]/g,
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
             );
         }
     </script>
 </body>
+
 </html>
