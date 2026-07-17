@@ -19,7 +19,7 @@ jobs:
           port: 22
           script: |
             # Altera para a pasta onde o projeto está clonado no seu servidor Oracle
-            cd /home/${{ secrets.SSH_USER }}/cnab-parser || exit 1
+            cd /home/${{ secrets.SSH_USER }}/otaviosena-projects/cnab-parser || exit 1
             
             # Baixa a versão mais recente do código do GitHub
             git pull origin main
